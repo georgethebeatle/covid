@@ -9,12 +9,18 @@ def ourWorldInData():
         'Entity':'Country'})
 
 def kaggle():
-    data = pd.read_csv('data/covid_19_data.csv')
-    data = data.drop(columns=['Province/State'])
-    data = data.rename(columns={'Country/Region':'Country', 'Confirmed':'Cases'})
-    data['Open'] = data['Cases'] - (data['Deaths'] + data['Recovered'])
-    data['Closed'] = data['Cases'] - data['Open']
-    return data
+    covidData = pd.read_csv('data/covid_19_data.csv')
+    covidData = covidData.drop(columns=['Province/State'])
+    covidData = covidData.rename(columns={'Country/Region':'Country', 'Confirmed':'Cases'})
+    covidData['Open'] = covidData['Cases'] - (covidData['Deaths'] + covidData['Recovered'])
+    covidData['Closed'] = covidData['Cases'] - covidData['Open']
+
+    populationData = pd.read_csv('data/population.csv')
+    populationData = populationData[populationData['Year'] == 2018]
+    populationData = populationData.rename(columns={'Country Name':'Country', 'Value':'Population'})
+    populationData = populationData.drop(columns=['Year', 'Country Code'])
+
+    return pd.merge(covidData, populationData, how='inner', on='Country')
 
 class Covid:
     def __init__(self, data, runningAvgWindow):
