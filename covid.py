@@ -45,9 +45,13 @@ class Covid:
         result = pd.DataFrame(np.convolve(x, np.ones((self.runningAvgWindow,))/self.runningAvgWindow, mode='valid'))
         return result[0]
 
-    def plotTotalCases(self, country):
+    def plotTotalCases(self, country, **kwargs):
         plt.xlabel('Days')
-        self.byCountry(country)['Cases'].plot(title='Total Cases')
+        countryData = self.byCountry(country)
+        totalCases = countryData['Cases']
+        if kwargs.get('scale_by', '') == "Population":
+          totalCases = totalCases / countryData['Population'] * 1000000
+        totalCases.plot(title='Total Cases')
 
     def plotRecoveries(self, country):
         plt.xlabel('Days')
@@ -114,8 +118,8 @@ class Covid:
         for country in countries:
             self.plotCountryStatus(country)
 
-    def plotAllInOne(self, plotFunc, countries):
+    def plotAllInOne(self, plotFunc, countries, **kwargs):
         for country in countries:
-            plotFunc(country)
+            plotFunc(country, **kwargs)
         plt.legend(countries)
         plt.show()
