@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+RUNNING_AVG_WINDOW = 7
+
 def ourWorldInData():
     data = pd.read_csv('data/our-world-in-data.csv')
     return data.rename(columns={
@@ -22,10 +24,14 @@ def kaggle():
 
     return pd.merge(covidData, populationData, how='inner', on='Country')
 
+# https://stackoverflow.com/questions/13728392/moving-average-or-running-mean
+def runningAvg(data):
+    result = pd.DataFrame(np.convolve(data, np.ones((RUNNING_AVG_WINDOW,))/RUNNING_AVG_WINDOW, mode='valid'))
+    return result[0]
+
 class Covid:
-    def __init__(self, data, runningAvgWindow):
+    def __init__(self, data):
         self.data = data
-        self.runningAvgWindow = runningAvgWindow
 
     def findCountry(self, term):
         countries = self.data['Country'].unique()
@@ -40,17 +46,14 @@ class Covid:
         startingDay1 = total[1:].reset_index(drop=True)
         return (startingDay1 - startingDay0)
 
-    # https://stackoverflow.com/questions/13728392/moving-average-or-running-mean
-    def runningAvg(self, x):
-        result = pd.DataFrame(np.convolve(x, np.ones((self.runningAvgWindow,))/self.runningAvgWindow, mode='valid'))
-        return result[0]
 
     def plotTotalCases(self, country, **kwargs):
         plt.xlabel('Days')
         countryData = self.byCountry(country)
         totalCases = countryData['Cases']
-        if kwargs.get('scale_by', '') == "Population":
-          totalCases = totalCases / countryData['Population'] * 1000000
+        if 'scale_by' in kwargs:
+          totalCases = totalCases / countryData[kwargs['scale_by']]
+        totalCases *= kwargs.get('factor', 1)
         totalCases.plot(title='Total Cases')
 
     def plotRecoveries(self, country):
@@ -66,19 +69,19 @@ class Covid:
         self.dailyNewCasesByCountry(country).plot(kind='bar', title='Daily New Cases')
 
     def plotNewCasesAvg(self, country):
-        avg = self.runningAvg(self.dailyNewCasesByCountry(country))
-        avg.index += self.runningAvgWindow - 1
+        avg = runningAvg(self.dailyNewCasesByCountry(country))
+        avg.index += RUNNING_AVG_WINDOW - 1
         avg.plot(style=['--r'])
 
     def plotLogDailyAvgByLogTotalCases(self, country):
         total = self.byCountry(country)['Cases']
-        dailyAvg = self.runningAvg(self.dailyNewCasesByCountry(country))
+        dailyAvg = runningAvg(self.dailyNewCasesByCountry(country))
         plt.title('Avg New Cases vs Total Cases')
         plt.xscale('log')
         plt.xlabel('Total Cases')
         plt.yscale('log')
         plt.ylabel('Avg New Cases')
-        plt.plot(total[self.runningAvgWindow:], dailyAvg)
+        plt.plot(total[RUNNING_AVG_WINDOW:], dailyAvg)
 
     def plotOutcomeOfCases(self, country):
         countryData = self.byCountry(country)
