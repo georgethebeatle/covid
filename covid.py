@@ -9,6 +9,11 @@ def runningAvg(data):
     result = pd.DataFrame(np.convolve(data, np.ones((RUNNING_AVG_WINDOW,))/RUNNING_AVG_WINDOW, mode='valid'))
     return result[0]
 
+def plot(data, **kwargs):
+    plt.xlabel(kwargs.pop('xlabel', ''))
+    plt.ylabel(kwargs.pop('ylabel', ''))
+    data.plot(**kwargs)
+
 class Covid:
     def __init__(self):
         covidData = pd.read_csv('data/covid_19_data.csv')
@@ -50,76 +55,68 @@ class Covid:
     def byCountry(self, country):
         return self.data[self.data['Country'] == country].reset_index(drop=True)
 
-    def dailyNewCases(self, country):
-        return self.byCountry(country)['DailyNewCases']
-
-    def plotTotalCases(self, country, **kwargs):
-        plt.xlabel('Days')
+    def scale(self, country, column, **kwargs):
         countryData = self.byCountry(country)
-        totalCases = countryData['Cases']
+        result = countryData[column]
         if 'scale_by' in kwargs:
-          totalCases = totalCases / countryData[kwargs['scale_by']]
-        totalCases *= kwargs.get('factor', 1)
-        totalCases.plot(title='Total Cases')
+          result = result / countryData[kwargs['scale_by']]
+        result *= kwargs.get('factor', 1)
+        return result
 
-    def plotRecoveries(self, country):
-        plt.xlabel('Days')
-        self.byCountry(country)['Recovered'].plot(title='Total Cases')
+    def totalCases(self, country, **kwargs):
+        return self.scale(country, 'Cases', **kwargs)
 
-    def plotDeaths(self, country):
-        plt.xlabel('Days')
-        self.byCountry(country)['Deaths'].plot(title='Total Cases')
+    def dailyNewCases(self, country, **kwargs):
+        return self.scale(country, 'DailyNewCases', **kwargs)
 
-    def plotDailyNewCases(self, country):
-        plt.xlabel('Days')
-        self.dailyNewCases(country).plot(kind='bar', title='Daily New Cases')
-
-    def plotNewCasesAvg(self, country):
-        avg = runningAvg(self.dailyNewCases(country))
+    def avgNewCases(self, country, **kwargs):
+        avg = runningAvg(self.dailyNewCases(country, **kwargs))
         avg.index += RUNNING_AVG_WINDOW - 1
-        avg.plot(style=['--r'])
+        return avg
 
-    def plotLogDailyAvgByLogTotalCases(self, country):
-        total = self.byCountry(country)['Cases']
-        dailyAvg = runningAvg(self.dailyNewCases(country))
-        plt.title('Avg New Cases vs Total Cases')
-        plt.xscale('log')
-        plt.xlabel('Total Cases')
-        plt.yscale('log')
-        plt.ylabel('Avg New Cases')
-        plt.plot(total[RUNNING_AVG_WINDOW - 1:], dailyAvg)
+    def recoveries(self, country, **kwargs):
+        return self.scale(country, 'Recovered', **kwargs)
 
-    def plotOutcomeOfCases(self, country):
-        countryData = self.byCountry(country)
-        recoveryRate = (countryData['Recovered'] / countryData['Closed'] * 100)
-        deathRate = (countryData['Deaths'] / countryData['Closed'] * 100)
-        plt.title('Outcome of Cases')
-        plt.xlabel('Days')
-        plt.ylabel('Percent')
-        recoveryRate.plot()
-        deathRate.plot()
-        plt.legend(['recovery rate', 'death rate'])
+    def recoveryRate(self, country):
+        return self.scale(country, 'Recovered', scale_by='Closed', factor=100)
+
+    def deaths(self, country, **kwargs):
+        return self.scale(country, 'Deaths', **kwargs)
+
+    def deathRate(self, country):
+        return self.scale(country, 'Deaths', scale_by='Closed', factor=100)
+
+    def dailyAvgByTotalCases(self, country, **kwargs):
+        avg = self.avgNewCases(country, **kwargs)
+        total = self.totalCases(country, **kwargs)
+        avg.index = total[RUNNING_AVG_WINDOW - 1:]
+        return avg
 
     def plotCountryStatus(self, country):
         fig = plt.figure(figsize=(20,10))
         fig.suptitle(country, fontsize=25)
 
         plt.subplot(221)
-        self.plotTotalCases(country)
-        self.plotDeaths(country)
-        self.plotRecoveries(country)
-        plt.legend(['confirmed', 'deaths', 'recoveries'])
+        plot(self.totalCases(country), title='Total Cases', legend=True)
+        plot(self.deaths(country), legend=True)
+        plot(self.recoveries(country), legend=True)
+        plt.xlabel('Days')
 
         plt.subplot(222)
-        self.plotDailyNewCases(country)
-        self.plotNewCasesAvg(country)
-        plt.legend(['avg daily cases', 'daily cases'])
+        plot(self.dailyNewCases(country), title='Daily New Cases', kind='bar', xlabel='Days')
+        plot(self.avgNewCases(country), label='AvgNewCases', style='--r')
+        plt.legend()
 
         plt.subplot(223)
-        self.plotLogDailyAvgByLogTotalCases(country)
+        plot(self.dailyAvgByTotalCases(country), 
+                title='Avg New Cases vs Total Cases', 
+                loglog=True, 
+                xlabel='Total Cases', 
+                ylabel='Avg New Cases')
 
         plt.subplot(224)
-        self.plotOutcomeOfCases(country)
+        plot(self.recoveryRate(country), title='Outcome of Cases', xlabel='Days', ylabel='Percent', legend=True, label='Recovery Rate')
+        plot(self.deathRate(country), legend=True, label='Death Rate')
 
         plt.show()
 
@@ -127,8 +124,9 @@ class Covid:
         for country in countries:
             self.plotCountryStatus(country)
 
-    def plotAllInOne(self, plotFunc, countries, **kwargs):
+    def plotAllInOne(self, dataFunc, countries, **kwargs):
+        plot_kwargs = {key: value for key, value in kwargs.items() if key not in ['scale_by', 'factor']}
         for country in countries:
-            plotFunc(country, **kwargs)
+            plot(dataFunc(country, **kwargs), **plot_kwargs)
         plt.legend(countries)
         plt.show()
