@@ -103,8 +103,8 @@ class Covid:
         plt.xlabel('Days')
 
         plt.subplot(222)
-        plot(self.dailyNewCases(country), title='Daily New Cases', kind='bar', xlabel='Days')
-        plot(self.avgNewCases(country), label='AvgNewCases', style='--r')
+        plot(self.dailyNewCases(country), title='Daily New Cases', kind='bar', xlabel='Days', label='Daily New Cases')
+        plot(self.avgNewCases(country), label='%dd running avg' % RUNNING_AVG_WINDOW, style='--r')
         plt.legend()
 
         plt.subplot(223)
