@@ -86,7 +86,7 @@ class Covid:
     def deathRate(self, country):
         return self.scale(country, 'Deaths', scale_by='Closed', factor=100)
 
-    def dailyAvgByTotalCases(self, country, **kwargs):
+    def growthOfCases(self, country, **kwargs):
         avg = self.avgNewCases(country, **kwargs)
         total = self.totalCases(country, **kwargs)
         avg.index = total[RUNNING_AVG_WINDOW - 1:]
@@ -108,10 +108,10 @@ class Covid:
         plt.legend()
 
         plt.subplot(223)
-        plot(self.dailyAvgByTotalCases(country), 
-                title='Avg New Cases vs Total Cases', 
+        plot(self.growthOfCases(country),
+                title='Logarithmic Growth of Cases',
                 loglog=True, 
-                xlabel='Total Cases', 
+                xlabel='Total Cases',
                 ylabel='Avg New Cases')
 
         plt.subplot(224)
